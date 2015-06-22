@@ -18,6 +18,7 @@ import android
 import os
 import io
 import threading
+import time
 
 from androidcamera import AndroidCamera
 from homescreen import HomeScreen
@@ -202,4 +203,9 @@ class Skelly(App):
 
 
 if __name__== '__main__':
-	Skelly().run()
+	skelly = Skelly()
+	skelly.run()
+
+	# Needed when using the twisted XMLRPC server
+	while skelly.tw.keep_running():
+		time.sleep(1)
