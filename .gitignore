@@ -33,3 +33,5 @@ flycheck_*
 test_file
 test_file.torrent
 .DS_Store
+android/.buildozer
+android/bin
