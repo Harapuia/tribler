@@ -1,5 +1,9 @@
 __version__ = '1.0'
-from kivy.uix.boxlayout import BoxLayout
+from kivy.app import App
+from kivy.uix.relativelayout import RelativeLayout
+from kivy.uix.widget import Widget
+from kivy.uix.button import Button
+from kivy.core.image import Image
 from kivy.graphics.texture import Texture
 from kivy.clock import Clock
 from kivy.animation import Animation
@@ -31,7 +35,8 @@ ImageView = autoclass('android.widget.ImageView')
 CompressFormat = autoclass('android/graphics/Bitmap$CompressFormat')
 FileOutputStream = autoclass('java.io.FileOutputStream')
 
-class FileWidget(BoxLayout):
+
+class FileWidget(RelativeLayout):
 	name = "No Name Set"
 	uri = "/pls/set/uri"
 	texture = None
@@ -50,7 +55,7 @@ class FileWidget(BoxLayout):
 	WEBP = 3
 
 	def __init__(self, torrentname=None, uri=None, **kwargs):
-		BoxLayout.__init__(self, **kwargs)
+		RelativeLayout.__init__(self, **kwargs)
 		if torrentname is not None:
 			self.setName(torrentname)
 		if uri is not None:
@@ -75,17 +80,24 @@ class FileWidget(BoxLayout):
 		print self.uri
 		print 'Pressed'
 
-	#Adds and removes the video files to the nfc set so that they can be transferred
 	def toggle_nfc(self, state):
-
-		print 'toggling', self.ids.nfc_toggler
+		"""Adds and removes the video files to the nfc set so
+		that they can be transferred
+		"""
+		Logger.info("Toggle NFC")
 		if(state == 'normal'):
 			print 'button state up'
 			globalvars.nfcCallback.removeUris(self.uri)
+			if self._check_torrent_made():
+				globalvars.nfcCallback.removeUris(self.uri + ".torrent")
 
 		if(state == 'down'):
 			print 'button state down'
 			globalvars.nfcCallback.addUris(self.uri)
+			self._create_torrent()
+			if self._check_torrent_made():
+				globalvars.nfcCallback.addUris(self.uri + ".torrent")
+				self._seed_torrent()
 
 	#Android's Bitmaps are in ARGB format, while kivy expects RGBA.
 	#This function swaps the bytes to their appropriate locations
@@ -181,6 +193,12 @@ class FileWidget(BoxLayout):
 		os.remove(self.uri)
 		os.remove(self.ids.img.source)
 
+	def copy_magnet_link(self):
+		sess = globalvars.skelly.tw.get_session_mgr().get_session()
+		magnet = sess.get_download(self.tdef.infohash).get_magnet_link()
+		if magnet is not None:
+			Clipboard.put(magnet, 'text/string')
+
 	def _check_torrent_made(self):
 		""" Check if a .torrent exists for this file and if it does, import
 		Return boolean result
@@ -191,17 +209,6 @@ class FileWidget(BoxLayout):
 			return True
 		return False
 
-	def torrent_button(self):
-		""" Torrent button handler"""
-		if self._check_torrent_made():
-			d = self._seed_torrent()
-		else:
-			self._create_torrent()
-			d = self._seed_torrent()
-		if d.get_status() == DLSTATUS_SEEDING:
-			Clipboard.put(d.get_magnet_link(), 'text/string')
-			Logger.info("Magnet link copied")
-
 	def _create_torrent(self):
 		"""Create tdef, save .torrent"""
 		if self._check_torrent_made() is False:
@@ -209,15 +216,11 @@ class FileWidget(BoxLayout):
 			self.tdef = TorrentDef()
 			self.tdef.add_content(self.uri, playtime=self.get_playtime())
 			self.tdef.set_dht_nodes([["router.bittorrent.com", 8991]])
-			fin_thread = threading.Thread(target=TorrentDef.finalize,
-				args=(self.tdef, None, None))
-			fin_thread.start()
-			fin_thread.join()
-			assert self.tdef.is_finalized()
+			self.tdef.finalize()  # Should run on another thread
 			self.tdef.save(self.uri + ".torrent")
 			self._check_torrent_made()
 		else:
-			Logger.info("TDEF already created for: ", self.name)
+			Logger.info("TDEF already created for: " + self.name)
 
 	def _delete_torrent(self):
 		""" Delete .torrent,tdef to None and remove download from Tribler"""
@@ -241,4 +244,6 @@ class FileWidget(BoxLayout):
 			return sess.start_download(self.tdef, dscfg)
 		else:
 			Logger.info("Already added to Tribler: " + self.tdef.get_name())
-			return sess.get_download(self.tdef.infohash)
+			d = sess.get_download(self.tdef.infohash)
+			d.force_recheck()
+			return d

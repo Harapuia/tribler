@@ -1,13 +1,13 @@
 [app]
 
 # (str) Title of your application
-title = SkeletonApp
+title = ShadowInternet
 
 # (str) Package name
-package.name = skelly
+package.name = shadowinternet
 
 # (str) Package domain (needed for android/ios packaging)
-package.domain = org.test
+package.domain = org.tribler
 
 # (str) Source code where the main.py live
 source.dir = .
@@ -33,7 +33,7 @@ version.filename = %(source.dir)s/main.py
 
 # (list) Application requirements
 # comma seperated e.g. requirements = sqlite3,kivy
-requirements = kivy, pyjnius, numpy, Tribler, ffmpeg
+requirements = kivy, pyjnius, numpy, libtribler, ffmpeg
 
 
 # (list) Garden requirements
@@ -43,7 +43,7 @@ requirements = kivy, pyjnius, numpy, Tribler, ffmpeg
 #presplash.filename = %(source.dir)s/data/presplash.png
 
 # (str) Icon of the application
-#icon.filename = %(source.dir)s/data/icon.png
+icon.filename = ./img/logo.png
 
 # (str) Supported orientation (one of landscape, portrait or all)
 orientation = all
@@ -61,16 +61,16 @@ android.permissions = CAMERA, INTERNET, NFC, READ_EXTERNAL_STORAGE, RECORD_AUDIO
 
 
 # (int) Android API to use
-android.api = 19
+android.api = 16
 
 # (int) Minimum API required (8 = Android 2.2 devices)
-android.minapi = 19
+android.minapi = 16
 
 # (int) Android SDK version to use
-#android.sdk = 22
+android.sdk = 22
 
 # (str) Android NDK version to use
-#android.ndk = 10
+android.ndk = 10
 
 # (bool) Use --private data storage (True) or --dir public storage (False)
 #android.private_storage = True
