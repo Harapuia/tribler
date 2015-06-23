@@ -99,8 +99,8 @@ class SearchScreen(Screen):
 
 			# Add torrent to list:
 			if not already_added:
-				fwid = FileWidget()
-				fwid.setName(torrent['name']) # TODO: load in Torrent object in torrents list kept by this SearchScreen
+				fwid = FileWidget(torrentname=torrent['name'])
+				# TODO: load in Torrent object in torrents list kept by this SearchScreen
 				self.ids.fileList.add_widget(fwid)
 				self._torrents.append(torrent)
 
