@@ -1,35 +1,25 @@
 __version__ = '1.0'
-from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.widget import Widget
-from kivy.uix.button import Button
-from kivy.core.image import Image
 from kivy.graphics.texture import Texture
 from kivy.clock import Clock
 from kivy.animation import Animation
-
-
-from kivy.uix.anchorlayout import AnchorLayout
-from kivy.properties import ObjectProperty
+from kivy.logger import Logger
+from kivy.core.clipboard import Clipboard
 
 import numpy
-import android
 import os
-import io
 import time
 import threading
 import functools
 
 from Tribler.Core.TorrentDef import TorrentDef
 from Tribler.Core.DownloadConfig import DownloadStartupConfig
+from Tribler.Core.simpledefs import DLSTATUS_SEEDING
 
 import globalvars
 
-from jnius import autoclass, cast, detach
-from jnius import JavaClass
-from jnius import PythonJavaClass
+from jnius import autoclass, cast
 from android.runnable import run_on_ui_thread
-
 
 Context = autoclass('android.content.Context')
 PythonActivity = autoclass('org.renpy.android.PythonActivity')
@@ -42,28 +32,39 @@ CompressFormat = autoclass('android/graphics/Bitmap$CompressFormat')
 FileOutputStream = autoclass('java.io.FileOutputStream')
 
 class FileWidget(BoxLayout):
-	name = 'NO FILENAME SET'
-	uri = None
+	name = "No Name Set"
+	uri = "/pls/set/uri"
 	texture = None
 	benchmark = time.time()
 	lImageView = ImageView
 	thumbnail = None
 	tdef = None
 
-	#Enumerator as per android.media.ThumbnailUtils
+	# Enumerator as per android.media.ThumbnailUtils
 	MINI_KIND = 1
 	FULL_KIND = 2
 	MICRO_KIND = 3
-	#Enumerator as per Bitmap.CompressFormat
+	# Enumerator as per Bitmap.CompressFormat
 	JPEG = 1
 	PNG = 2
 	WEBP = 3
 
+	def __init__(self, torrentname=None, uri=None, **kwargs):
+		BoxLayout.__init__(self, **kwargs)
+		if torrentname is not None:
+			self.setName(torrentname)
+		if uri is not None:
+			self.setUri(uri)
+		if self._check_torrent_made():
+			self._seed_torrent()
+
 	def setName(self, nom):
+		assert nom is not None
 		self.name = nom
 		self.ids.filebutton.text = nom
 
-	def setUri(self,ur):
+	def setUri(self, ur):
+		assert ur is not None
 		self.uri = ur
 
 	def get_playtime(self):
@@ -85,7 +86,6 @@ class FileWidget(BoxLayout):
 		if(state == 'down'):
 			print 'button state down'
 			globalvars.nfcCallback.addUris(self.uri)
-
 
 	#Android's Bitmaps are in ARGB format, while kivy expects RGBA.
 	#This function swaps the bytes to their appropriate locations
@@ -112,6 +112,7 @@ class FileWidget(BoxLayout):
 		Clock.schedule_once(functools.partial(self.displayThumbnail,self.thumbnail.getWidth(), self.thumbnail.getHeight(),pixels))
 		print "Detatching thread"
 		#detach()
+
 	#New updated variant of Thumbnail creation. Generates and saves thumbnails to local storage
 	#If file already exists or after generation, it will load the thumbnail
 	def makeFileThumbnail(self):
@@ -130,6 +131,7 @@ class FileWidget(BoxLayout):
 			thumb.compress(CompressFormat.valueOf('JPEG'), 80,output)
 			output.close()
 			Clock.schedule_once(functools.partial(self.loadFileThumbnail, path))
+
 	#Loads the thumbnail from a given path and sets it in the FileWidget
 	def loadFileThumbnail(self, path, *largs):
 		print 'Attempting to set Image: ', path
@@ -158,43 +160,85 @@ class FileWidget(BoxLayout):
 		img_view.setImageBitmap(self.thumbnail)
 		self.ids.android.view = img_view
 		print "sem released"
+
 	#Benchmark function to help discover which function is slow
 	def bench(self):
 		print "BENCHMARK: ", time.time() - self.benchmark
 		self.benchmark = time.time()
+
 	#Deletes file and thumbnail associated with this widget
 	def delete(self):
 		anim = Animation(opacity=0, height=0, duration = 0.5)
 		anim.start(self)
-		Clock.schedule_once(self.remove,0.5)
-	#Removes this widget from the list with a transition effect
-	def remove(self, *largs):
+		Clock.schedule_once(self._remove,0.5)
+
+	def _remove(self, _):
+		"""Removes this widget from the list with a transition effect
+		In addition, remove the video and associated files, stop seeding
+		"""
+		self._delete_torrent()
 		self.parent.remove_widget(self)
 		os.remove(self.uri)
 		os.remove(self.ids.img.source)
 
-	# Create .torrent for this video
-	def create_torrent(self):
-		self.tdef = TorrentDef()
-		self.tdef.add_content(self.uri, playtime = self.get_playtime())
-		self.tdef.set_tracker("udp://tracker.openbittorrent.com:80")
-		fin_thread = threading.Thread(target=TorrentDef.finalize, args = (self.tdef, None, self._torrent_finalize_callback))
-		fin_thread.start()
-		fin_thread.join()
-		if self.tdef.is_finalized():
-			# Update button to show that .torrent has been generated. For now, auto seed
+	def _check_torrent_made(self):
+		""" Check if a .torrent exists for this file and if it does, import
+		Return boolean result
+		"""
+		if os.path.isfile(self.uri + ".torrent"):
+			Logger.info("Found torrent: " + self.uri + ".torrent")
+			self.tdef = TorrentDef.load(self.uri + ".torrent")
+			return True
+		return False
+
+	def torrent_button(self):
+		""" Torrent button handler"""
+		if self._check_torrent_made():
+			d = self._seed_torrent()
+		else:
+			self._create_torrent()
+			d = self._seed_torrent()
+		if d.get_status() == DLSTATUS_SEEDING:
+			Clipboard.put(d.get_magnet_link(), 'text/string')
+			Logger.info("Magnet link copied")
+
+	def _create_torrent(self):
+		"""Create tdef, save .torrent"""
+		if self._check_torrent_made() is False:
+			Logger.info("Creating TDEF for: ", self.name)
+			self.tdef = TorrentDef()
+			self.tdef.add_content(self.uri, playtime=self.get_playtime())
+			self.tdef.set_dht_nodes([["router.bittorrent.com", 8991]])
+			fin_thread = threading.Thread(target=TorrentDef.finalize,
+				args=(self.tdef, None, None))
+			fin_thread.start()
+			fin_thread.join()
+			assert self.tdef.is_finalized()
 			self.tdef.save(self.uri + ".torrent")
-			print("Infohash: ", self.tdef.get_infohash())
-			sess = globalvars.skelly.tw.get_session_mgr().get_session()
+			self._check_torrent_made()
+		else:
+			Logger.info("TDEF already created for: ", self.name)
+
+	def _delete_torrent(self):
+		""" Delete .torrent,tdef to None and remove download from Tribler"""
+		if os.path.isfile(self.uri + ".torrent"):
+			os.remove(self.uri + ".torrent")
+		sess = globalvars.skelly.tw.get_session_mgr().get_session()
+		if sess.has_download(self.tdef.infohash):
+			sess.remove_download_by_id(self.tdef.infohash)
+		tdef = None
+
+	def _seed_torrent(self):
+		""" Seed with Tribler
+		Returns the Download handler
+		"""
+		assert self.tdef is not None and self.tdef.is_finalized()
+		sess = globalvars.skelly.tw.get_session_mgr().get_session()
+		if not sess.has_download(self.tdef.infohash):
+			Logger.info("Adding torrent to tribler: " + self.tdef.get_name())
 			dscfg = DownloadStartupConfig()
-			dscfg.set_dest_dir(globalvars.storagedir)
-			sess.start_download(self.tdef, dscfg)
-
-	# Seed torrent using Tribler
-	def seed_torrent(self):
-		print("TODO: Add torrent to Tribler")
-		if(globalvars.skelly.tw.keep_running()):
-			print("Triber running")
-
-	def _torrent_finalize_callback(self, fraction):
-		print("Fraction: ", fraction)
+			dscfg.set_dest_dir(os.path.dirname(self.uri))
+			return sess.start_download(self.tdef, dscfg)
+		else:
+			Logger.info("Already added to Tribler: " + self.tdef.get_name())
+			return sess.get_download(self.tdef.infohash)

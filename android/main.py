@@ -26,9 +26,7 @@ from torrentscreen import TorrentWidget, TorrentInfoScreen
 
 import globalvars
 
-from jnius import autoclass, cast, detach
-from jnius import JavaClass
-from jnius import PythonJavaClass
+from jnius import autoclass, cast
 from android.runnable import run_on_ui_thread
 
 Context = autoclass('android.content.Context')
@@ -229,10 +227,5 @@ class Skelly(App):
 			App.get_running_app().stop()
 
 
-if __name__== '__main__':
-	skelly = Skelly()
-	skelly.run()
-
-	# Needed when using the twisted XMLRPC server
-	while skelly.tw.keep_running():
-		time.sleep(1)
+if __name__ == '__main__':
+	Skelly().run()

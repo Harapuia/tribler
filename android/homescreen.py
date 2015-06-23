@@ -73,8 +73,7 @@ class HomeScreen(Screen):
 
 	#Test function for adding a number of fake video buttons
 	def addVideo(self):
-		wid = FileWidget()
-		wid.setName('FakeVid!')
+		wid = FileWidget(torrentname='FakeVid!', uri=None)
 		self.ids.fileList.add_widget(wid)
 
 	#Useful support function to print the location of the DCIM dir
@@ -90,7 +89,6 @@ class HomeScreen(Screen):
 			globalvars.nfcCallback.clearUris()
 		files = []
 		DCIMdir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-		globalvars.storagedir = DCIMdir.toURI().getPath()
 		self.ids.fileList.clear_widgets()
 		for root, dirnames, filenames in os.walk(DCIMdir.getAbsolutePath()):
 			for filename in fnmatch.filter(filenames,'*.mp4'):
@@ -102,9 +100,7 @@ class HomeScreen(Screen):
 	#then, it adds itself to the Queue for the thumbnail thread to load it's thumbnails
 	def createFileWidget(self, tup, *largs):
 		filename, uri = tup
-		wid = FileWidget()
-		wid.setName(filename)
-		wid.setUri(uri)
+		wid = FileWidget(torrentname=filename, uri=uri)
 		self.ids.fileList.add_widget(wid)
 		self.non_thumbnailed.put(wid)
 
