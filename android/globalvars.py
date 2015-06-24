@@ -10,3 +10,5 @@ global skelly
 skelly = None
 global videopref
 videopref = "INTERNAL"
+global triblerfun
+triblerfun = False
