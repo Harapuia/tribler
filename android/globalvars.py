@@ -8,3 +8,5 @@ global nfcCallback
 nfcCallback = None
 global skelly
 skelly = None
+global videopref
+videopref = "INTERNAL"
