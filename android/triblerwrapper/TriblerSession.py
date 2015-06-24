@@ -93,9 +93,7 @@ class TriblerSession(BaseManager):
         self._sconfig.set_enable_channel_search(False)
 
         # Videoplayer stuff
-        self._sconfig.set_videoplayer(False)
-        self._sconfig.set_preferred_playback_mode(42)
-
+        self._sconfig.set_videoplayer(True)
 
         Logger.info("Starting Tribler session..")
         self._session = Session(self._sconfig)

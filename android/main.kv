@@ -315,35 +315,38 @@
 				anchor_y: 'center'
 				id: filebutton
 				text: root.name
-				on_release: root.pressed()
+				on_release: root.on_press()
+
+<TorrentInfoScreen>
+	BoxLayout:
+		orientation: "vertical"
+		id: torrentinfoscreen
 		AnchorLayout:
 			anchor_x:'right'
 			anchor_y:'top'
 			BoxLayout:
-				size_hint: None, None
-				anchor_x: 'right'
+				anchor_x: 'left'
 				anchor_y: 'center'
-				width: '0.8cm'
-				height: self.width*3
 				orientation:"vertical"
-				id: button_layout
+				Label:
+					text:root.type_label_text
+					rgba:0,0,0.8,0.5
+				Label:
+					text:root.filesize_label_text
+					rgba:0,0,0.8,0.5
+				Label:
+					text:root.seeders_label_text
+					rgba:0,0,0.8,0.5
+				Label:
+					text:root.leechers_label_text
+					rgba:0,0,0.8,0.5
 				Button:
-					background_color: 0.6,0.6,0.6,1
-					background_normal: ''
-					id: editBut
+					text:'Play'
 					on_release: root.start_stream()
-					BoxLayout:
-						pos: self.parent.pos
-						size: self.parent.size
-						Image:
-							source: 'img/ic_edit_white_48dp.png'
+					background_color: 0.5,0.5,0.5,1
+					background_normal:''
 				Button:
-					background_color: 0.6,0.6,0.6,1
-					background_normal: ''
-					id: eraseBut
+					text:'Download'
 					on_release: root.start_download()
-					BoxLayout:
-						pos: self.parent.pos
-						size: self.parent.size
-						Image:
-							source: 'img/ic_delete_white_48dp.png'
+					background_color: 0.5,0.5,0.5,1
+					background_normal:''
