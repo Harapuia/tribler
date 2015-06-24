@@ -23,6 +23,7 @@ import time
 from androidcamera import AndroidCamera
 from homescreen import HomeScreen
 from torrentscreen import TorrentWidget, TorrentInfoScreen
+from homescreen import HomeScreen
 
 import globalvars
 
@@ -45,6 +46,7 @@ TextUtils = autoclass('android.text.TextUtils')
 MediaColumns = autoclass('android.provider.MediaStore$MediaColumns')
 
 Builder.load_file('main.kv')
+
 
 class SearchScreen(Screen):
 
@@ -132,6 +134,7 @@ class CameraWidget(AnchorLayout):
 		print 'Stop camera'
 		self._camera.stop()
 
+
 class CamScreen(Screen):
 	#When the screen is entered, we start the camera
 	def on_enter(self):
@@ -144,12 +147,18 @@ class CamScreen(Screen):
 		if cam._camera != None:
 			cam.stop()
 
+
+class VideoScreen(Screen):
+	pass
+
+
 class Skelly(App):
 	sm = ScreenManager()
 	history = []
 	HomeScr = HomeScreen(name='home')
 	SearchScr = SearchScreen(name='search')
 	CamScr = CamScreen(name='cam')
+	VidScr = VideoScreen(name='video')
 	TorrentInfoScr = TorrentInfoScreen(name='torrentinfo')
 	sm.switch_to(HomeScr)
 	tw = TriblerWrapper()
